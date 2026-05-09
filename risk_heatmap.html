@@ -1,0 +1,1495 @@
+<!DOCTYPE html>
+<html lang="zh-CN">
+<head>
+<meta charset="UTF-8" />
+<meta name="viewport" content="width=device-width, initial-scale=1.0" />
+<title>X-Bank AI 风险全景仪表盘 · Team G</title>
+<!--
+  Team G - X-Bank AI治理魔方 - 工具一 风险热力图（咨询演示 Demo）
+  坐标：TOOL 01 · X2-Y1-Z1（事中动态管控 × 战略协作 × 管理决策层）
+  方法论：R = (E×P×I)^(1/3)；拨备 = 业务规模(亿元)×等级系数×(R/80)，输出万元/年
+  说明：交付稿曾写「默认可解释性×信贷审批 91」；本 Demo 内置数据以赛题参考校准表为准，
+       全行峰值格为「公平性×信贷审批」R=91，页面默认下钻该格。
+-->
+<script src="https://cdn.jsdelivr.net/npm/echarts@5/dist/echarts.min.js"></script>
+<style>
+:root {
+  --green: #85BB24;
+  --green-dark: #43AF2A;
+  --green-bg: #F1F8DA;
+  --blue: #0097E0;
+  --blue-light: #EAF6FB;
+  --navy: #004F71;
+  --red: #D04A02;
+  --orange: #EE7623;
+  --lime: #C4D500;
+  --grey-text: #4A4A4A;
+  --grey-light: #B0B0B0;
+  --bg: #FFFFFF;
+  --bg-alt: #FAFAF7;
+  --border: #D9D9D6;
+  --font-zh: "Microsoft YaHei", "微软雅黑", sans-serif;
+  --font-en: Calibri, Arial, sans-serif;
+}
+* { box-sizing: border-box; margin: 0; padding: 0; }
+body {
+  font-family: var(--font-zh);
+  color: var(--grey-text);
+  background: var(--bg-alt);
+  font-size: 13px;
+  line-height: 1.45;
+}
+.en { font-family: var(--font-en); }
+
+/* 顶栏 */
+.topbar {
+  height: 60px;
+  background: var(--navy);
+  color: #fff;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  padding: 0 28px;
+  border-bottom: 3px solid var(--green);
+}
+.topbar .logo { font-weight: 700; font-size: 22px; letter-spacing: 0.5px; }
+.topbar .logo span { color: var(--green); }
+.topbar .sub { font-size: 12px; opacity: 0.92; margin-left: 12px; }
+.topbar .tool-id { font-size: 11px; text-align: right; opacity: 0.85; }
+
+/* 标题区 */
+.hero {
+  background: var(--bg);
+  border-bottom: 1px solid var(--border);
+  padding: 18px 28px 16px;
+  display: flex;
+  justify-content: space-between;
+  gap: 24px;
+  flex-wrap: wrap;
+  min-height: 120px;
+}
+.hero-left .eyebrow {
+  font-size: 11px; font-weight: 700; letter-spacing: 1.2px; color: var(--navy);
+  text-transform: uppercase;
+}
+.hero-left h1 {
+  font-size: 26px; color: var(--navy); margin: 6px 0 4px; font-weight: 700;
+}
+.hero-left .lead { font-size: 13px; color: var(--grey-text); max-width: 640px; }
+
+.kpi-row { display: flex; gap: 12px; align-items: stretch; }
+.kpi {
+  min-width: 160px; border: 1px solid var(--border); padding: 12px 14px;
+  background: var(--blue-light);
+}
+.kpi .lbl { font-size: 11px; color: var(--navy); font-weight: 700; text-transform: uppercase; }
+.kpi .val {
+  font-size: 28px; font-weight: 700; color: var(--navy); margin-top: 4px;
+  font-variant-numeric: tabular-nums; transition: color 0.3s;
+}
+.kpi .unit { font-size: 12px; font-weight: 400; color: var(--grey-text); }
+
+/* 主布局 */
+.shell { padding: 16px 28px 24px; max-width: 1600px; margin: 0 auto; }
+.grid-main {
+  display: grid;
+  grid-template-columns: 280px 1fr 420px;
+  gap: 14px;
+  align-items: start;
+}
+@media (max-width: 1100px) {
+  .grid-main { grid-template-columns: 1fr; }
+  .kpi-row { flex-wrap: wrap; }
+}
+
+.panel {
+  background: var(--bg);
+  border: 1px solid var(--border);
+}
+.panel-h {
+  padding: 10px 12px;
+  border-bottom: 1px solid var(--border);
+  background: linear-gradient(180deg, var(--green-bg) 0%, #fff 100%);
+  font-weight: 700;
+  color: var(--navy);
+  font-size: 12px;
+  display: flex;
+  align-items: center;
+  justify-content: space-between;
+  gap: 8px;
+}
+.panel-b { padding: 12px; }
+
+/* 筛选器 */
+.filter-block { margin-bottom: 14px; }
+.filter-block:last-child { margin-bottom: 0; }
+.filter-title {
+  font-size: 11pt; font-weight: 700; color: var(--navy);
+  margin-bottom: 6px; text-transform: uppercase;
+}
+.filter-title small { font-size: 11px; font-weight: 700; margin-left: 6px; text-transform: none; }
+.filter-actions { font-size: 11px; margin-bottom: 6px; }
+.filter-actions a { color: var(--blue); cursor: pointer; text-decoration: underline; margin-right: 8px; }
+.chk-list label {
+  display: flex; align-items: center; gap: 6px; padding: 3px 0; cursor: pointer; font-size: 12px;
+}
+.chk-list input { accent-color: var(--green-dark); }
+.reset-bar { margin-top: 12px; padding-top: 10px; border-top: 1px dashed var(--border); }
+.btn {
+  display: inline-block; padding: 6px 12px; border: 1px solid var(--navy);
+  background: #fff; color: var(--navy); font-size: 12px; cursor: pointer;
+  font-family: inherit;
+}
+.btn:hover { background: var(--blue-light); }
+.btn-primary { background: var(--navy); color: #fff; }
+.btn-primary:hover { background: #003a52; }
+
+/* Tab */
+.tabs {
+  display: flex; border-bottom: 1px solid var(--border); background: var(--bg-alt);
+}
+.tabs button {
+  flex: 1; padding: 8px 6px; border: none; background: transparent;
+  cursor: pointer; font-size: 12px; color: var(--grey-text); border-bottom: 2px solid transparent;
+  font-family: inherit;
+}
+.tabs button.active {
+  color: var(--navy); font-weight: 700; border-bottom-color: var(--green-dark);
+  background: #fff;
+}
+
+/* 热力图 */
+.viz-body { padding: 12px; min-height: 420px; position: relative; }
+.empty-viz {
+  position: absolute; inset: 0; display: none; align-items: center; justify-content: center;
+  background: rgba(255,255,255,0.92); text-align: center; padding: 24px; z-index: 5;
+}
+.empty-viz.show { display: flex; }
+
+.heat-wrap { overflow-x: auto; }
+.heat-table {
+  display: grid;
+  gap: 6px;
+  min-width: 520px;
+}
+.heat-corner {
+  background: var(--navy); color: #fff; font-size: 11px; font-weight: 700;
+  display: flex; align-items: center; justify-content: center; padding: 6px;
+}
+.heat-col-h {
+  background: var(--blue-light); color: var(--navy); font-weight: 700; font-size: 11px;
+  text-align: center; padding: 8px 6px; border: 1px solid var(--border);
+}
+.heat-row-h {
+  background: var(--green-bg); color: var(--navy); font-weight: 700; font-size: 11px;
+  display: flex; align-items: center; justify-content: center; padding: 6px;
+  border: 1px solid var(--border);
+}
+.heat-cell {
+  border: 1px solid var(--border);
+  padding: 10px 8px;
+  cursor: pointer;
+  position: relative;
+  transition: transform 0.25s ease, box-shadow 0.25s ease, border-color 0.25s;
+  min-height: 86px;
+  display: flex; flex-direction: column; justify-content: center;
+}
+.heat-cell:hover { transform: translateY(-1px); box-shadow: 0 2px 0 var(--green); }
+.heat-cell.selected { outline: 2px solid var(--navy); outline-offset: -1px; }
+.heat-cell.level-H { background: rgba(208, 74, 2, 0.12); }
+.heat-cell.level-M { background: rgba(238, 118, 35, 0.12); }
+.heat-cell.level-L { background: rgba(196, 213, 0, 0.18); }
+.heat-cell.empty { background: #f5f5f5; cursor: default; color: var(--grey-light); }
+.heat-cell.empty:hover { transform: none; box-shadow: none; }
+.heat-big { font-size: 26px; font-weight: 800; color: var(--navy); line-height: 1.1; }
+.heat-tag { font-size: 11px; font-weight: 700; margin-top: 4px; }
+.heat-tag.H { color: var(--red); }
+.heat-tag.M { color: var(--orange); }
+.heat-tag.L { color: #6a7a00; }
+.heat-meta { font-size: 11px; color: var(--grey-text); margin-top: 4px; }
+.star {
+  position: absolute; top: 4px; right: 6px; color: var(--orange); font-size: 14px;
+}
+
+.chart-box { width: 100%; height: 380px; display: none; }
+.chart-box.show { display: block; }
+
+.legend-bar {
+  display: flex; align-items: center; gap: 16px; flex-wrap: wrap;
+  padding: 10px 12px; border-top: 1px solid var(--border); background: var(--bg-alt);
+  font-size: 12px;
+}
+.legend-item { display: flex; align-items: center; gap: 6px; }
+.sq { width: 14px; height: 14px; border: 1px solid var(--border); }
+.sq.H { background: var(--red); }
+.sq.M { background: var(--orange); }
+.sq.L { background: var(--lime); }
+.insight { margin-left: auto; max-width: 520px; color: var(--navy); font-weight: 600; }
+
+/* 右栏 */
+.rtabs { display: flex; border-bottom: 1px solid var(--border); }
+.rtabs button {
+  flex: 1; padding: 8px; border: none; background: var(--bg-alt); cursor: pointer;
+  font-size: 12px; font-family: inherit; color: var(--grey-text);
+}
+.rtabs button.active { background: #fff; font-weight: 700; color: var(--navy); border-bottom: 2px solid var(--green-dark); }
+
+.detail-score { font-size: 56px; font-weight: 800; color: var(--navy); line-height: 1; }
+.tag-level {
+  display: inline-block; padding: 2px 10px; font-size: 12px; font-weight: 700; color: #fff; margin-top: 8px;
+}
+.tag-level.H { background: var(--red); }
+.tag-level.M { background: var(--orange); }
+.tag-level.L { background: var(--green-dark); }
+
+.factor-row { margin-top: 10px; }
+.factor-top { display: flex; align-items: center; justify-content: space-between; font-size: 12px; }
+.badge-e {
+  width: 22px; height: 22px; border-radius: 50%; background: var(--navy); color: #fff;
+  display: inline-flex; align-items: center; justify-content: center; font-size: 11px; font-weight: 700; margin-right: 6px;
+}
+.bar-track {
+  height: 8px; background: #eee; border: 1px solid var(--border); margin-top: 4px;
+}
+.bar-fill { height: 100%; background: var(--green); transition: width 0.3s ease; }
+
+.section-title { font-size: 12px; font-weight: 700; color: var(--navy); margin: 14px 0 6px; }
+.bullets li { margin-left: 16px; margin-bottom: 4px; }
+.cloud { display: flex; flex-wrap: wrap; gap: 6px; }
+.cloud span {
+  border: 1px solid var(--border); padding: 2px 8px; font-size: 11px; background: var(--blue-light); color: var(--navy);
+}
+.reserve-big { font-size: 32px; font-weight: 800; color: var(--red); margin-top: 6px; }
+.formula-note { font-size: 11px; color: var(--grey-text); margin-top: 4px; }
+
+/* 计算器 */
+.calc-grid { display: grid; gap: 10px; }
+.field label { display: block; font-size: 11px; font-weight: 700; color: var(--navy); margin-bottom: 4px; }
+.field input[type="text"], .field select {
+  width: 100%; padding: 6px 8px; border: 1px solid var(--border); font-family: inherit;
+}
+.field input[type="range"] { width: 100%; }
+.range-val { float: right; font-weight: 700; color: var(--navy); }
+.subgroup {
+  border: 1px solid var(--border); padding: 10px; background: var(--bg-alt);
+}
+.subgroup h4 { font-size: 11px; color: var(--navy); margin-bottom: 8px; text-transform: uppercase; }
+.quick-btns button { margin-right: 6px; margin-top: 4px; font-size: 11px; }
+
+.out-box {
+  border: 1px solid var(--navy); padding: 12px; background: var(--green-bg); margin-top: 10px;
+}
+.mini-chart { width: 100%; height: 160px; margin-top: 8px; }
+
+/* 底部表格 */
+.bottom-panel { margin-top: 14px; }
+.bottom-head {
+  display: flex; align-items: center; justify-content: space-between;
+  padding: 10px 12px; background: var(--navy); color: #fff; cursor: pointer;
+  border: 1px solid var(--navy);
+}
+.bottom-head h3 { font-size: 13px; font-weight: 700; }
+.bottom-body { display: none; border: 1px solid var(--border); border-top: none; background: #fff; }
+.bottom-body.open { display: block; }
+.table-wrap { overflow-x: auto; }
+table.data {
+  width: 100%; border-collapse: collapse; font-size: 12px;
+}
+table.data th, table.data td {
+  border-bottom: 1px solid var(--border); padding: 8px 8px; text-align: left;
+  white-space: nowrap;
+}
+table.data th {
+  background: var(--blue-light); color: var(--navy); cursor: pointer; user-select: none;
+}
+table.data tr:hover td { background: var(--green-bg); }
+table.data tr.active td { background: #e8f5d0; }
+.lvl-dot { font-weight: 700; }
+.lvl-dot.H { color: var(--red); }
+.lvl-dot.M { color: var(--orange); }
+.lvl-dot.L { color: var(--green-dark); }
+.table-actions { padding: 10px 12px; display: flex; gap: 8px; flex-wrap: wrap; border-top: 1px solid var(--border); }
+
+/* Tooltip 自定义 */
+#tt {
+  position: fixed; z-index: 9999; pointer-events: none; display: none;
+  max-width: 320px; background: var(--navy); color: #fff; padding: 10px 12px;
+  font-size: 11px; border: 1px solid var(--green); box-shadow: 0 4px 12px rgba(0,0,0,0.15);
+}
+#tt .t-title { font-weight: 700; margin-bottom: 6px; color: var(--green); }
+#tt .t-row { opacity: 0.95; margin: 2px 0; }
+</style>
+</head>
+<body>
+<div class="topbar">
+  <div>
+    <span class="logo en">Deloitte<span>.</span></span>
+    <span class="sub">智驭未来 · Team G · X-Bank AI治理魔方</span>
+  </div>
+  <div class="tool-id en">TOOL 01 · X2-Y1-Z1</div>
+</div>
+
+<div class="hero">
+  <div class="hero-left">
+    <div class="eyebrow en">Risk Heatmap · Interactive Dashboard</div>
+    <h1>X-Bank AI 风险全景仪表盘</h1>
+    <p class="lead">支持多维度筛选、参数调节与风险定价的管理层决策工具 — 方法论：R = (E×P×I)^(1/3)，拨备 = 规模×系数×(R/80)。</p>
+  </div>
+  <div class="kpi-row">
+    <div class="kpi"><div class="lbl en">Models</div><div class="val" id="kpi-total">0</div><div class="unit">当前在管模型总数</div></div>
+    <div class="kpi"><div class="lbl en">High Risk</div><div class="val" id="kpi-high">0</div><div class="unit">R ≥ 80（高风险 H）</div></div>
+    <div class="kpi"><div class="lbl en">Reserve</div><div class="val" id="kpi-reserve">0</div><div class="unit">总建议拨备（万元/年）</div></div>
+  </div>
+</div>
+
+<div class="shell">
+  <div class="grid-main">
+    <!-- 左：筛选 -->
+    <aside class="panel" id="filter-panel">
+      <div class="panel-h"><span>多维筛选器</span></div>
+      <div class="panel-b" id="filters-root"></div>
+      <div class="panel-b reset-bar">
+        <button type="button" class="btn btn-primary" id="btn-reset-filters">重置筛选</button>
+      </div>
+    </aside>
+
+    <!-- 中：可视化 -->
+    <section class="panel">
+      <div class="tabs" id="mid-tabs">
+        <button type="button" data-tab="heat" class="active">风险热力矩阵</button>
+        <button type="button" data-tab="biz">业务线分布</button>
+        <button type="button" data-tab="region">地区分布</button>
+        <button type="button" data-tab="trend">趋势追踪</button>
+      </div>
+      <div class="viz-body">
+        <div class="empty-viz" id="empty-viz">
+          <div>
+            <div style="font-size:18px;font-weight:700;color:var(--navy);margin-bottom:8px;">未匹配模型</div>
+            <div>请放宽筛选条件或点击「重置筛选」</div>
+          </div>
+        </div>
+        <div id="view-heat" class="heat-wrap"></div>
+        <div id="chart-biz" class="chart-box"></div>
+        <div id="chart-region" class="chart-box"></div>
+        <div id="chart-trend" class="chart-box"></div>
+      </div>
+      <div class="legend-bar">
+        <div class="legend-item"><span class="sq H"></span> 高 H（R≥80）</div>
+        <div class="legend-item"><span class="sq M"></span> 中 M（60–79）</div>
+        <div class="legend-item"><span class="sq L"></span> 低 L（&lt;60）</div>
+        <div class="insight" id="heat-insight"></div>
+      </div>
+    </section>
+
+    <!-- 右：详情 / 计算器 -->
+    <aside class="panel">
+      <div class="rtabs">
+        <button type="button" class="active" data-rtab="detail">风险详情</button>
+        <button type="button" data-rtab="calc">风险定价计算器</button>
+      </div>
+      <div class="panel-b" style="min-height:520px;" id="right-body"></div>
+    </aside>
+  </div>
+
+  <div class="bottom-panel panel">
+    <div class="bottom-head" id="bottom-toggle">
+      <h3>模型清单（可折叠）— 增删改 · 排序 · 导出</h3>
+      <span id="bottom-arrow">▼</span>
+    </div>
+    <div class="bottom-body" id="bottom-body">
+      <div class="table-wrap">
+        <table class="data" id="model-table">
+          <thead></thead>
+          <tbody></tbody>
+        </table>
+      </div>
+      <div class="table-actions">
+        <button type="button" class="btn btn-primary" id="btn-add-model">+ 新增模型</button>
+        <button type="button" class="btn" id="btn-export-csv">导出 CSV</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+<div id="tt"></div>
+<script>
+(function () {
+  'use strict';
+
+  var LS_KEY = 'xbank-ai-risk-heatmap-v1';
+
+  var BUSINESS_LINES = ['智能客服', '信贷审批', '客户画像', '反欺诈', '投顾推荐'];
+  var REGIONS = ['华北', '华东', '华南', '华中', '西部'];
+  var MODEL_TYPES = ['传统ML', '深度学习', 'LLM大模型', '多模态', 'Agent'];
+  var RISK_TYPES = [
+    { key: 'F', label: '公平性', code: 'F' },
+    { key: 'E', label: '可解释性', code: 'E' },
+    { key: 'T', label: '隐私', code: 'T' },
+    { key: 'A', label: '合规问责', code: 'A' }
+  ];
+  var RISK_TYPE_KEYS = RISK_TYPES.map(function (x) { return x.key; });
+
+  function clamp(n, a, b) { return Math.max(a, Math.min(b, n)); }
+
+  /** 子项归一化到 0–100 */
+  function normFreq(v) { return clamp((v / 10000000) * 100, 0, 100); }
+  function normCoverage(v) { return clamp((v / 100000000) * 100, 0, 100); }
+  function normAmountWan(v) { return clamp((v / 1000) * 100, 0, 100); }
+
+  function computeE(m) {
+    return 0.4 * normFreq(m.E_freq) + 0.4 * normCoverage(m.E_coverage) + 0.2 * normAmountWan(m.E_amount);
+  }
+  function computeP(m) {
+    return 0.4 * m.P_history + 0.3 * m.P_bias + 0.3 * m.P_regulation;
+  }
+  function computeI(m) {
+    return 0.4 * m.I_fine + 0.3 * m.I_ltv + 0.2 * m.I_reputation + 0.1 * m.I_remediation;
+  }
+  function computeR(E, P, I) {
+    var x = Math.max(0, E) * Math.max(0, P) * Math.max(0, I);
+    return Math.pow(x, 1 / 3);
+  }
+  function levelFromR(R) {
+    if (R >= 80) return 'H';
+    if (R >= 60) return 'M';
+    return 'L';
+  }
+  function reserveCoef(lv) {
+    if (lv === 'H') return 0.025;
+    if (lv === 'M') return 0.012;
+    return 0.003;
+  }
+  /** 拨备（万元/年）= 规模(亿)×系数×(R/80)×10000 */
+  function capitalReserve(scaleYi, R, lv) {
+    var adj = R / 80;
+    return scaleYi * reserveCoef(lv) * adj * 10000;
+  }
+
+  function enrichModel(m) {
+    var E = computeE(m);
+    var P = computeP(m);
+    var I = computeI(m);
+    var R = computeR(E, P, I);
+    var lv = levelFromR(R);
+    var cap = capitalReserve(m.scale, R, lv);
+    return {
+      E_score: E, P_score: P, I_score: I, R_score: R, level: lv, capitalReserve: cap
+    };
+  }
+
+  function fullModel(m) {
+    var e = enrichModel(m);
+    var o = {};
+    for (var k in m) o[k] = m[k];
+    o.E_score = e.E_score; o.P_score = e.P_score; o.I_score = e.I_score;
+    o.R_score = e.R_score; o.level = e.level; o.capitalReserve = e.capitalReserve;
+    return o;
+  }
+
+  /** 预设 12 模型：子项均设为同一目标分，使 E=P=I=目标R，几何平均=R */
+  function makePreset(id, name, bl, region, mt, rtKey, targetR, scale) {
+    var t = targetR;
+    return fullModel({
+      id: id,
+      name: name,
+      businessLine: bl,
+      region: region,
+      modelType: mt,
+      riskType: rtKey,
+      scale: scale,
+      E_freq: (t / 100) * 10000000,
+      E_coverage: (t / 100) * 100000000,
+      E_amount: (t / 100) * 1000,
+      P_history: t, P_bias: t, P_regulation: t,
+      I_fine: t, I_ltv: t, I_reputation: t, I_remediation: t
+    });
+  }
+
+  var TARGETS = [
+    62, 91, 84,
+    38, 86, 54,
+    88, 58, 79,
+    61, 82, 66
+  ];
+  var BL_ORDER = ['智能客服', '信贷审批', '客户画像'];
+  var RT_ORDER = ['F', 'E', 'T', 'A'];
+
+  function buildPresets() {
+    var list = [];
+    var names = [
+      '客服话术公平监测', '信贷反歧视评分', '画像标签公平审计',
+      '客服话术可解释', '信贷决策路径解释', '画像特征贡献解释',
+      '客服对话隐私脱敏', '信贷数据最小化', '画像授权链路追踪',
+      '客服投诉问责路由', '信贷责任链追踪', '画像第三方问责'
+    ];
+    var regs = ['华北', '华东', '华南', '华中', '西部', '华北', '华东', '华南', '华中', '西部', '华北', '华东'];
+    var mts = ['LLM大模型', '传统ML', '深度学习', 'Agent', '多模态', 'LLM大模型', '传统ML', '深度学习', 'Agent', '多模态', 'LLM大模型', '传统ML'];
+    var scales = [1.2, 4.5, 2.8, 0.9, 5.2, 3.1, 2.0, 4.0, 1.5, 0.8, 3.6, 2.2];
+    var idx = 0;
+    for (var r = 0; r < RT_ORDER.length; r++) {
+      for (var b = 0; b < BL_ORDER.length; b++) {
+        var rt = RT_ORDER[r];
+        var bl = BL_ORDER[b];
+        list.push(makePreset(
+          'M' + String(idx + 1).padStart(3, '0'),
+          names[idx],
+          bl,
+          regs[idx],
+          mts[idx],
+          rt,
+          TARGETS[idx],
+          scales[idx]
+        ));
+        idx++;
+      }
+    }
+    return list;
+  }
+
+  var PRESETS = buildPresets();
+
+  var state = {
+    models: [],
+    filters: {},
+    selectedCellKey: 'F|信贷审批',
+    selectedModelId: null,
+    editingId: null,
+    midTab: 'heat',
+    rightTab: 'detail',
+    tableSort: { key: 'R_score', dir: 'desc' },
+    bottomOpen: false,
+    anim: { total: 0, high: 0, reserve: 0 }
+  };
+
+  function initFiltersState() {
+    state.filters = {
+      businessLine: BUSINESS_LINES.slice(),
+      region: REGIONS.slice(),
+      modelType: MODEL_TYPES.slice(),
+      riskType: RISK_TYPE_KEYS.slice(),
+      level: ['H', 'M', 'L']
+    };
+  }
+
+  function loadModels() {
+    try {
+      var raw = localStorage.getItem(LS_KEY);
+      if (!raw) return PRESETS.map(function (m) { return JSON.parse(JSON.stringify(m)); });
+      var arr = JSON.parse(raw);
+      if (!Array.isArray(arr) || !arr.length) return PRESETS.map(function (m) { return JSON.parse(JSON.stringify(m)); });
+      return arr.map(function (m) { return fullModel(m); });
+    } catch (e) {
+      return PRESETS.map(function (m) { return JSON.parse(JSON.stringify(m)); });
+    }
+  }
+
+  function saveModels() {
+    localStorage.setItem(LS_KEY, JSON.stringify(state.models));
+  }
+
+  function getFilteredModels() {
+    return state.models.filter(function (m) {
+      if (state.filters.businessLine.length && state.filters.businessLine.indexOf(m.businessLine) === -1) return false;
+      if (state.filters.region.length && state.filters.region.indexOf(m.region) === -1) return false;
+      if (state.filters.modelType.length && state.filters.modelType.indexOf(m.modelType) === -1) return false;
+      if (state.filters.riskType.length && state.filters.riskType.indexOf(m.riskType) === -1) return false;
+      if (state.filters.level.length && state.filters.level.indexOf(m.level) === -1) return false;
+      return true;
+    });
+  }
+
+  function countForGroup(dim, value) {
+    var others = state.models.filter(function (m) {
+      if (dim !== 'businessLine' && state.filters.businessLine.length && state.filters.businessLine.indexOf(m.businessLine) === -1) return false;
+      if (dim !== 'region' && state.filters.region.length && state.filters.region.indexOf(m.region) === -1) return false;
+      if (dim !== 'modelType' && state.filters.modelType.length && state.filters.modelType.indexOf(m.modelType) === -1) return false;
+      if (dim !== 'riskType' && state.filters.riskType.length && state.filters.riskType.indexOf(m.riskType) === -1) return false;
+      if (dim !== 'level' && state.filters.level.length && state.filters.level.indexOf(m.level) === -1) return false;
+      return true;
+    });
+    return others.filter(function (m) { return m[dim] === value; }).length;
+  }
+
+  function renderFilterUI() {
+    var root = document.getElementById('filters-root');
+    var blocks = [
+      { dim: 'businessLine', title: 'BUSINESS LINE', zh: '业务线', opts: BUSINESS_LINES },
+      { dim: 'region', title: 'REGION', zh: '地区', opts: REGIONS },
+      { dim: 'modelType', title: 'MODEL TYPE', zh: '模型类型', opts: MODEL_TYPES },
+      { dim: 'riskType', title: 'RISK TYPE', zh: '风险类型', opts: RISK_TYPE_KEYS.map(function (k) {
+        var rt = RISK_TYPES.filter(function (x) { return x.key === k; })[0];
+        return { v: k, lab: rt.label + ' ' + k };
+      }) },
+      { dim: 'level', title: 'RISK LEVEL', zh: '风险等级', opts: [
+        { v: 'H', lab: '高 H' }, { v: 'M', lab: '中 M' }, { v: 'L', lab: '低 L' }
+      ] }
+    ];
+
+    root.innerHTML = blocks.map(function (b) {
+      var optsHtml;
+      if (b.dim === 'riskType') {
+        optsHtml = b.opts.map(function (o) {
+          var c = countForGroup('riskType', o.v);
+          return '<label><input type="checkbox" data-dim="riskType" value="' + o.v + '" ' +
+            (state.filters.riskType.indexOf(o.v) >= 0 ? 'checked' : '') + '/> ' + o.lab + ' <span style="color:#888">(' + c + ')</span></label>';
+        }).join('');
+      } else if (b.dim === 'level') {
+        optsHtml = b.opts.map(function (o) {
+          var c = countForGroup('level', o.v);
+          return '<label><input type="checkbox" data-dim="level" value="' + o.v + '" ' +
+            (state.filters.level.indexOf(o.v) >= 0 ? 'checked' : '') + '/> ' + o.lab + ' <span style="color:#888">(' + c + ')</span></label>';
+        }).join('');
+      } else {
+        optsHtml = b.opts.map(function (o) {
+          var c = countForGroup(b.dim, o);
+          return '<label><input type="checkbox" data-dim="' + b.dim + '" value="' + o + '" ' +
+            (state.filters[b.dim].indexOf(o) >= 0 ? 'checked' : '') + '/> ' + o + ' <span style="color:#888">(' + c + ')</span></label>';
+        }).join('');
+      }
+      return '<div class="filter-block" data-block="' + b.dim + '">' +
+        '<div class="filter-title en">' + b.title + ' <small>' + b.zh + '</small></div>' +
+        '<div class="filter-actions"><a class="js-sel-all" data-dim="' + b.dim + '">全选</a><a class="js-sel-none" data-dim="' + b.dim + '">全不选</a></div>' +
+        '<div class="chk-list">' + optsHtml + '</div></div>';
+    }).join('');
+
+    root.querySelectorAll('input[type=checkbox]').forEach(function (inp) {
+      inp.addEventListener('change', function () {
+        var dim = inp.getAttribute('data-dim');
+        var v = inp.value;
+        var arr = state.filters[dim].slice();
+        if (inp.checked) {
+          if (arr.indexOf(v) === -1) arr.push(v);
+        } else {
+          arr = arr.filter(function (x) { return x !== v; });
+        }
+        state.filters[dim] = arr;
+        renderFilterUI();
+        refreshAll();
+      });
+    });
+    root.querySelectorAll('.js-sel-all').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var dim = a.getAttribute('data-dim');
+        if (dim === 'businessLine') state.filters.businessLine = BUSINESS_LINES.slice();
+        else if (dim === 'region') state.filters.region = REGIONS.slice();
+        else if (dim === 'modelType') state.filters.modelType = MODEL_TYPES.slice();
+        else if (dim === 'riskType') state.filters.riskType = RISK_TYPE_KEYS.slice();
+        else if (dim === 'level') state.filters.level = ['H', 'M', 'L'];
+        renderFilterUI();
+        refreshAll();
+      });
+    });
+    root.querySelectorAll('.js-sel-none').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault();
+        var dim = a.getAttribute('data-dim');
+        state.filters[dim] = [];
+        renderFilterUI();
+        refreshAll();
+      });
+    });
+  }
+
+  var charts = { biz: null, region: null, trend: null, mini: null };
+
+  function disposeChart(name) {
+    if (charts[name]) {
+      charts[name].dispose();
+      charts[name] = null;
+    }
+  }
+
+  function ensureChart(domId, name) {
+    var el = document.getElementById(domId);
+    if (!el) return null;
+    if (!charts[name]) charts[name] = echarts.init(el);
+    return charts[name];
+  }
+
+  function colorByLevel(lv) {
+    if (lv === 'H') return '#D04A02';
+    if (lv === 'M') return '#EE7623';
+    return '#C4D500';
+  }
+
+  function aggregateCell(rt, bl, ms) {
+    var cell = ms.filter(function (m) { return m.riskType === rt && m.businessLine === bl; });
+    if (!cell.length) return null;
+    var avg = function (fn) {
+      var s = 0; cell.forEach(function (m) { s += fn(m); });
+      return s / cell.length;
+    };
+    var avgR = avg(function (m) { return m.R_score; });
+    var avgE = avg(function (m) { return m.E_score; });
+    var avgP = avg(function (m) { return m.P_score; });
+    var avgI = avg(function (m) { return m.I_score; });
+    var lv = levelFromR(avgR);
+    return {
+      models: cell,
+      count: cell.length,
+      avgR: avgR,
+      avgE: avgE,
+      avgP: avgP,
+      avgI: avgI,
+      level: lv,
+      names: cell.map(function (m) { return m.name; })
+    };
+  }
+
+  function renderHeatmap(ms) {
+    var wrap = document.getElementById('view-heat');
+    var lines = {};
+    ms.forEach(function (m) { lines[m.businessLine] = true; });
+    var cols = BUSINESS_LINES.filter(function (b) { return lines[b]; });
+    if (!cols.length) {
+      wrap.innerHTML = '<div style="padding:32px;text-align:center;color:#4A4A4A;">当前筛选下无可用业务线列，请调整筛选条件。</div>';
+      document.getElementById('heat-insight').textContent = '';
+      return;
+    }
+
+    var nCol = cols.length;
+    var gridCols = '120px';
+    for (var i = 0; i < nCol; i++) gridCols += ' 1fr';
+
+    var cells = [];
+    var maxR = -1;
+    var maxKey = '';
+    RISK_TYPES.forEach(function (rt) {
+      cols.forEach(function (bl) {
+        var ag = aggregateCell(rt.key, bl, ms);
+        var key = rt.key + '|' + bl;
+        if (ag && ag.avgR > maxR) { maxR = ag.avgR; maxKey = key; }
+        cells.push({ key: key, rt: rt, bl: bl, ag: ag });
+      });
+    });
+
+    var html = '<div class="heat-table" style="grid-template-columns:' + gridCols + '">';
+    html += '<div class="heat-corner en">RISK \\ BIZ</div>';
+    cols.forEach(function (bl) {
+      html += '<div class="heat-col-h">' + bl + '</div>';
+    });
+    RISK_TYPES.forEach(function (rt) {
+      html += '<div class="heat-row-h">' + rt.label + '<br/><span class="en">(' + rt.code + ')</span></div>';
+      cols.forEach(function (bl) {
+        var key = rt.key + '|' + bl;
+        var ag = aggregateCell(rt.key, bl, ms);
+        if (!ag) {
+          html += '<div class="heat-cell empty" data-key="' + key + '"><span class="heat-big">—</span><div class="heat-meta">无模型</div></div>';
+        } else {
+          var sel = state.selectedCellKey === key && !state.selectedModelId ? ' selected' : '';
+          var star = (key === maxKey && ag.count) ? '<span class="star">★</span>' : '';
+          html += '<div class="heat-cell level-' + ag.level + sel + '" data-key="' + key + '" tabindex="0">' +
+            star +
+            '<span class="heat-big">' + ag.avgR.toFixed(0) + '</span>' +
+            '<div class="heat-tag ' + ag.level + '">' + (ag.level === 'H' ? '高 H' : ag.level === 'M' ? '中 M' : '低 L') + '</div>' +
+            '<div class="heat-meta">模型数 ' + ag.count + '</div></div>';
+        }
+      });
+    });
+    html += '</div>';
+    wrap.innerHTML = html;
+
+    wrap.querySelectorAll('.heat-cell:not(.empty)').forEach(function (cell) {
+      cell.addEventListener('click', function () {
+        state.selectedCellKey = cell.getAttribute('data-key');
+        state.selectedModelId = null;
+        state.rightTab = 'detail';
+        updateRightTabs();
+        renderHeatmap(ms);
+        renderRightPanel();
+        syncTableActive();
+      });
+      cell.addEventListener('mouseenter', function (ev) { showCellTooltip(ev, cell.getAttribute('data-key'), ms); });
+      cell.addEventListener('mousemove', function (ev) { moveTooltip(ev); });
+      cell.addEventListener('mouseleave', hideTooltip);
+    });
+
+    var highCells = cells.filter(function (c) { return c.ag && c.ag.level === 'H'; }).length;
+    var peak = maxR >= 0 ? maxR.toFixed(0) : '—';
+    document.getElementById('heat-insight').textContent =
+      ms.length ? ('当前 ' + highCells + ' 个高风险格（H），峰值评分 ' + peak + '。') : '';
+  }
+
+  var ttEl = document.getElementById('tt');
+  function showCellTooltip(ev, key, ms) {
+    var parts = key.split('|');
+    var ag = aggregateCell(parts[0], parts[1], ms);
+    if (!ag) return;
+    var rtl = RISK_TYPES.filter(function (x) { return x.key === parts[0]; })[0];
+    var title = (rtl ? rtl.label + ' (' + rtl.code + ')' : parts[0]) + ' × ' + parts[1];
+    var names = ag.names.slice(0, 6).join('、') + (ag.names.length > 6 ? ' 等' : '');
+    ttEl.style.display = 'block';
+    ttEl.innerHTML =
+      '<div class="t-title">' + title + '</div>' +
+      '<div class="t-row">综合 R（格内均值）: ' + ag.avgR.toFixed(1) + '</div>' +
+      '<div class="t-row">E=' + ag.avgE.toFixed(1) + ' · P=' + ag.avgP.toFixed(1) + ' · I=' + ag.avgI.toFixed(1) + '</div>' +
+      '<div class="t-row">涉及模型: ' + names + '</div>';
+    moveTooltip(ev);
+  }
+  function moveTooltip(ev) {
+    ttEl.style.left = (ev.clientX + 14) + 'px';
+    ttEl.style.top = (ev.clientY + 14) + 'px';
+  }
+  function hideTooltip() { ttEl.style.display = 'none'; }
+
+  function renderBizChart(ms) {
+    var c = ensureChart('chart-biz', 'biz');
+    if (!c) return;
+    var map = {};
+    ms.forEach(function (m) {
+      if (!map[m.businessLine]) map[m.businessLine] = { s: 0, n: 0 };
+      map[m.businessLine].s += m.R_score;
+      map[m.businessLine].n++;
+    });
+    var cats = Object.keys(map);
+    var data = cats.map(function (k) {
+      var avg = map[k].s / map[k].n;
+      return {
+        name: k,
+        value: +avg.toFixed(2),
+        count: map[k].n,
+        itemStyle: { color: colorByLevel(levelFromR(avg)) }
+      };
+    });
+    c.setOption({
+      color: ['#85BB24', '#0097E0'],
+      grid: { left: 48, right: 24, top: 32, bottom: 48 },
+      tooltip: {
+        trigger: 'axis',
+        formatter: function (p) {
+          var d = p[0].data;
+          return d.name + '<br/>平均 R: ' + d.value + '<br/>模型数: ' + d.count;
+        }
+      },
+      xAxis: { type: 'category', data: cats, axisLabel: { color: '#4A4A4A', interval: 0, rotate: cats.length > 4 ? 25 : 0 } },
+      yAxis: { type: 'value', name: '平均 R', max: 100, splitLine: { lineStyle: { color: '#e0e0e0' } } },
+      series: [{ type: 'bar', data: data, barMaxWidth: 48 }]
+    }, true);
+  }
+
+  function renderRegionChart(ms) {
+    var c = ensureChart('chart-region', 'region');
+    if (!c) return;
+    var map = {};
+    REGIONS.forEach(function (r) { map[r] = { s: 0, n: 0 }; });
+    ms.forEach(function (m) {
+      if (!map[m.region]) map[m.region] = { s: 0, n: 0 };
+      map[m.region].s += m.R_score;
+      map[m.region].n++;
+    });
+    var cats = REGIONS;
+    var vals = cats.map(function (r) {
+      if (!map[r].n) return { value: 0, count: 0 };
+      return { value: +(map[r].s / map[r].n).toFixed(2), count: map[r].n };
+    });
+    c.setOption({
+      grid: { left: 48, right: 24, top: 32, bottom: 40 },
+      tooltip: {
+        trigger: 'axis',
+        formatter: function (p) {
+          var i = p[0].dataIndex;
+          return cats[i] + '<br/>平均 R: ' + vals[i].value + '<br/>模型数: ' + vals[i].count;
+        }
+      },
+      xAxis: { type: 'category', data: cats, axisLabel: { color: '#4A4A4A' } },
+      yAxis: { type: 'value', name: '平均 R', max: 100, splitLine: { lineStyle: { color: '#e0e0e0' } } },
+      series: [{
+        type: 'bar',
+        data: vals.map(function (v, i) {
+          return {
+            value: v.value,
+            itemStyle: { color: colorByLevel(levelFromR(v.value || 0)) }
+          };
+        }),
+        barMaxWidth: 40
+      }]
+    }, true);
+  }
+
+  function monthLabels() {
+    var out = [];
+    var y = 2025; var mo = 6;
+    for (var i = 0; i < 12; i++) {
+      out.push(y + '-' + String(mo).padStart(2, '0'));
+      mo++;
+      if (mo > 12) { mo = 1; y++; }
+    }
+    return out;
+  }
+
+  function renderTrendChart(ms) {
+    var c = ensureChart('chart-trend', 'trend');
+    if (!c) return;
+    var lines = {};
+    ms.forEach(function (m) { lines[m.businessLine] = true; });
+    var seriesNames = BUSINESS_LINES.filter(function (b) { return lines[b]; });
+    var months = monthLabels();
+    if (!seriesNames.length) {
+      c.setOption({ legend: { show: false }, xAxis: { type: 'category', data: months }, yAxis: { type: 'value', max: 100 }, series: [] }, true);
+      return;
+    }
+    var base = {};
+    seriesNames.forEach(function (name) {
+      var sub = ms.filter(function (m) { return m.businessLine === name; });
+      var b = sub.length ? sub.reduce(function (s, m) { return s + m.R_score; }, 0) / sub.length : 0;
+      base[name] = b;
+    });
+    var series = seriesNames.map(function (name) {
+      var data = months.map(function (_, i) {
+        var wobble = 4 * Math.sin(i / 1.8) + (name.length % 3);
+        return +clamp(base[name] + wobble, 0, 100).toFixed(1);
+      });
+      return { name: name, type: 'line', smooth: true, symbol: 'circle', symbolSize: 6, data: data };
+    });
+    c.setOption({
+      color: ['#004F71', '#0097E0', '#85BB24', '#EE7623', '#43AF2A'],
+      legend: { top: 4, textStyle: { color: '#4A4A4A' } },
+      grid: { left: 48, right: 24, top: 40, bottom: 40 },
+      tooltip: { trigger: 'axis' },
+      xAxis: { type: 'category', data: months, axisLabel: { color: '#4A4A4A', rotate: 30 } },
+      yAxis: { type: 'value', name: 'R', max: 100, splitLine: { lineStyle: { color: '#e0e0e0' } } },
+      series: series
+    }, true);
+  }
+
+  function animateKpi(to) {
+    var dur = 300;
+    var t0 = performance.now();
+    var from = { total: state.anim.total, high: state.anim.high, reserve: state.anim.reserve };
+    function frame(t) {
+      var p = Math.min(1, (t - t0) / dur);
+      var ease = p * (2 - p);
+      state.anim.total = from.total + (to.total - from.total) * ease;
+      state.anim.high = from.high + (to.high - from.high) * ease;
+      state.anim.reserve = from.reserve + (to.reserve - from.reserve) * ease;
+      document.getElementById('kpi-total').textContent = Math.round(state.anim.total);
+      document.getElementById('kpi-high').textContent = Math.round(state.anim.high);
+      document.getElementById('kpi-reserve').textContent = Math.round(state.anim.reserve);
+      if (p < 1) requestAnimationFrame(frame);
+    }
+    requestAnimationFrame(frame);
+  }
+
+  function updateKPI(ms) {
+    var high = ms.filter(function (m) { return m.R_score >= 80; }).length;
+    var res = ms.reduce(function (s, m) { return s + m.capitalReserve; }, 0);
+    animateKpi({ total: ms.length, high: high, reserve: res });
+  }
+
+  function switchMidTab(tab) {
+    state.midTab = tab;
+    document.querySelectorAll('#mid-tabs button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-tab') === tab);
+    });
+    document.getElementById('view-heat').style.display = tab === 'heat' ? 'block' : 'none';
+    ['chart-biz', 'chart-region', 'chart-trend'].forEach(function (id) {
+      var el = document.getElementById(id);
+      el.classList.toggle('show', id === 'chart-' + tab && tab !== 'heat');
+    });
+    var ms = getFilteredModels();
+    if (tab === 'biz') { renderBizChart(ms); setTimeout(function () { charts.biz && charts.biz.resize(); }, 50); }
+    if (tab === 'region') { renderRegionChart(ms); setTimeout(function () { charts.region && charts.region.resize(); }, 50); }
+    if (tab === 'trend') { renderTrendChart(ms); setTimeout(function () { charts.trend && charts.trend.resize(); }, 50); }
+  }
+
+  function governanceText(level, riskLabel) {
+    if (level === 'H') return '该组合在「' + riskLabel + '」维度暴露突出，建议立即纳入 Quick Win 清单，启动专项治理与资本拨备复核。';
+    if (level === 'M') return '风险处于中等区间，建议分阶段推进：先完成关键证据链补齐，再安排抽检与第三方验证。';
+    return '风险可控，建议纳入长效监测与年度复盘，保持数据与模型文档同步更新。';
+  }
+
+  function actionsFor(level, rt) {
+    var a = ['建立模型风险台账与责任矩阵（RACI）', '完善训练/推理数据血缘与版本冻结机制'];
+    if (level === 'H') a.unshift('72 小时内召开跨部门治理例会并下达整改里程碑');
+    if (rt === 'F') a.push('开展公平性回溯测试与分群差异监测（含替代特征敏感性分析）');
+    if (rt === 'E') a.push('上线可解释性报告模板与客户/监管可读摘要');
+    if (rt === 'T') a.push('对照《个保法》最小必要原则梳理字段清单与留存周期');
+    if (rt === 'A') a.push('映射《EU AI Act》高风险义务与国内监管问询要点');
+    return a;
+  }
+
+  function regCloud(rt) {
+    var base = ['《个人信息保护法》', '《数据安全法》', '人民银行金融科技伦理指引'];
+    if (rt === 'T') base.push('GDPR Art.22', 'PCI DSS（如适用）');
+    if (rt === 'A') base.push('《EU AI Act》Art.9-15', '巴塞尔模型风险指引（SR 11-7 精神）');
+    if (rt === 'F') base.push('ECOA/公平信贷原则（对标）', '算法歧视行政案例库');
+    if (rt === 'E') base.push('模型卡（Model Card）披露规范');
+    return base;
+  }
+
+  function reserveFormulaNote(scale, R, lv) {
+    return '依据公式：' + scale.toFixed(2) + ' 亿 × ' + (reserveCoef(lv) * 100).toFixed(2) +
+      '% × (' + R.toFixed(1) + '/80) × 10,000 → 万元/年';
+  }
+
+  function renderDetailAggregate(ag) {
+    var rt = ag.models[0].riskType;
+    var rtl = RISK_TYPES.filter(function (x) { return x.key === rt; })[0].label;
+    var R = ag.avgR;
+    var lv = ag.level;
+    var scaleSum = ag.models.reduce(function (s, m) { return s + m.scale; }, 0);
+    var capSum = ag.models.reduce(function (s, m) { return s + m.capitalReserve; }, 0);
+    return (
+      '<div><div class="detail-score">' + R.toFixed(0) + '</div>' +
+      '<span class="tag-level ' + lv + '">' + (lv === 'H' ? '高 H' : lv === 'M' ? '中 M' : '低 L') + '</span></div>' +
+      '<div class="section-title">三因子拆解（格内均值）</div>' +
+      factorBar('E', '业务暴露度 Exposure', ag.avgE) +
+      factorBar('P', '违规概率 Probability', ag.avgP) +
+      factorBar('I', '影响强度 Impact', ag.avgI) +
+      '<div class="section-title">风险解析</div><p>' + governanceText(lv, rtl) + ' 本格聚合 ' + ag.count + ' 个模型，业务规模合计约 ' + scaleSum.toFixed(2) + ' 亿元（演示口径）。</p>' +
+      '<div class="section-title">推荐治理动作</div><ul class="bullets">' +
+      actionsFor(lv, rt).map(function (x) { return '<li>▸ ' + x + '</li>'; }).join('') + '</ul>' +
+      '<div class="section-title">监管映射</div><div class="cloud">' +
+      regCloud(rt).map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>' +
+      '<div class="section-title">资本拨备建议（格内汇总）</div>' +
+      '<div class="reserve-big">' + Math.round(capSum) + ' <span style="font-size:14px;color:#4A4A4A;font-weight:600;">万元/年</span></div>' +
+      '<div class="formula-note">格内按模型分别计算后求和；单模型公式见计算器页签。</div>'
+    );
+  }
+
+  function renderDetailModel(m) {
+    var rt = m.riskType;
+    var rtl = RISK_TYPES.filter(function (x) { return x.key === rt; })[0].label;
+    return (
+      '<div><div class="detail-score">' + m.R_score.toFixed(0) + '</div>' +
+      '<span class="tag-level ' + m.level + '">' + (m.level === 'H' ? '高 H' : m.level === 'M' ? '中 M' : '低 L') + '</span>' +
+      '<div style="margin-top:8px;font-size:12px;color:#666;">' + m.name + ' · ' + m.businessLine + ' · ' + rtl + '</div></div>' +
+      '<div class="section-title">三因子拆解</div>' +
+      factorBar('E', '业务暴露度 Exposure', m.E_score) +
+      factorBar('P', '违规概率 Probability', m.P_score) +
+      factorBar('I', '影响强度 Impact', m.I_score) +
+      '<div class="section-title">风险解析</div><p>' + governanceText(m.level, rtl) + '</p>' +
+      '<div class="section-title">推荐治理动作</div><ul class="bullets">' +
+      actionsFor(m.level, rt).map(function (x) { return '<li>▸ ' + x + '</li>'; }).join('') + '</ul>' +
+      '<div class="section-title">监管映射</div><div class="cloud">' +
+      regCloud(rt).map(function (x) { return '<span>' + x + '</span>'; }).join('') + '</div>' +
+      '<div class="section-title">资本拨备建议</div>' +
+      '<div class="reserve-big">' + Math.round(m.capitalReserve) + ' <span style="font-size:14px;color:#4A4A4A;font-weight:600;">万元/年</span></div>' +
+      '<div class="formula-note">' + reserveFormulaNote(m.scale, m.R_score, m.level) + '</div>'
+    );
+  }
+
+  function factorBar(code, title, val) {
+    return '<div class="factor-row"><div class="factor-top"><span><span class="badge-e">' + code + '</span>' + title + '</span>' +
+      '<span>' + val.toFixed(1) + ' / 100</span></div>' +
+      '<div class="bar-track"><div class="bar-fill" style="width:' + val + '%"></div></div></div>';
+  }
+
+  function calcFormModel() {
+    return {
+      id: state.editingId || '',
+      name: document.getElementById('cf-name').value.trim() || '未命名模型',
+      businessLine: document.getElementById('cf-bl').value,
+      region: document.getElementById('cf-rg').value,
+      modelType: document.getElementById('cf-mt').value,
+      scale: parseFloat(document.getElementById('cf-scale').value) || 0,
+      E_freq: parseFloat(document.getElementById('cf-ef').value) || 0,
+      E_coverage: parseFloat(document.getElementById('cf-ec').value) || 0,
+      E_amount: parseFloat(document.getElementById('cf-ea').value) || 0,
+      P_history: parseFloat(document.getElementById('cf-ph').value) || 0,
+      P_bias: parseFloat(document.getElementById('cf-pb').value) || 0,
+      P_regulation: parseFloat(document.getElementById('cf-pr').value) || 0,
+      I_fine: parseFloat(document.getElementById('cf-if').value) || 0,
+      I_ltv: parseFloat(document.getElementById('cf-il').value) || 0,
+      I_reputation: parseFloat(document.getElementById('cf-ir').value) || 0,
+      I_remediation: parseFloat(document.getElementById('cf-ix').value) || 0,
+      riskType: document.getElementById('cf-rt').value
+    };
+  }
+
+  function wireCalc() {
+    var ids = ['cf-name', 'cf-bl', 'cf-rg', 'cf-mt', 'cf-rt', 'cf-scale', 'cf-ef', 'cf-ec', 'cf-ea', 'cf-ph', 'cf-pb', 'cf-pr', 'cf-if', 'cf-il', 'cf-ir', 'cf-ix'];
+    ids.forEach(function (id) {
+      var el = document.getElementById(id);
+      if (!el) return;
+      el.addEventListener('input', updateCalcOutputs);
+      el.addEventListener('change', updateCalcOutputs);
+    });
+    document.querySelectorAll('.js-preg').forEach(function (b) {
+      b.addEventListener('click', function () {
+        var v = parseFloat(b.getAttribute('data-v'));
+        document.getElementById('cf-pr').value = v;
+        updateCalcOutputs();
+      });
+    });
+    document.getElementById('btn-save-new').addEventListener('click', function () {
+      var raw = calcFormModel();
+      var m = fullModel(raw);
+      var maxn = 0;
+      state.models.forEach(function (x) {
+        var n = parseInt(String(x.id).replace(/\D/g, ''), 10);
+        if (!isNaN(n) && n > maxn) maxn = n;
+      });
+      m.id = 'M' + String(maxn + 1).padStart(3, '0');
+      state.models.push(m);
+      saveModels();
+      state.selectedModelId = m.id;
+      state.selectedCellKey = m.riskType + '|' + m.businessLine;
+      state.rightTab = 'detail';
+      state.editingId = null;
+      refreshAll();
+    });
+    document.getElementById('btn-update-existing').addEventListener('click', function () {
+      if (!state.editingId) return alert('请先从表格点「编辑」或在列表中选择已有模型。');
+      var raw = calcFormModel();
+      raw.id = state.editingId;
+      var m = fullModel(raw);
+      var idx = state.models.findIndex(function (x) { return x.id === m.id; });
+      if (idx >= 0) state.models[idx] = m;
+      saveModels();
+      refreshAll();
+    });
+  }
+
+  function updateCalcOutputs() {
+    var raw = calcFormModel();
+    var m = fullModel(raw);
+    document.getElementById('out-e').textContent = m.E_score.toFixed(1);
+    document.getElementById('out-p').textContent = m.P_score.toFixed(1);
+    document.getElementById('out-i').textContent = m.I_score.toFixed(1);
+    document.getElementById('out-r').textContent = m.R_score.toFixed(1);
+    var tag = document.getElementById('out-lv');
+    tag.className = 'tag-level ' + m.level;
+    tag.textContent = m.level === 'H' ? '高 H' : m.level === 'M' ? '中 M' : '低 L';
+    document.getElementById('out-cap').textContent = Math.round(m.capitalReserve);
+    var formEl = document.getElementById('out-cap-form');
+    if (formEl) formEl.textContent = reserveFormulaNote(m.scale, m.R_score, m.level);
+    var one = '该模型属于' + (m.level === 'H' ? '高风险 H 级，建议立即纳入 Quick Win 治理清单' : m.level === 'M' ? '中风险 M 级，建议分阶段推进并安排抽检' : '低风险 L 级，建议长效观察与年度复盘') + '。';
+    document.getElementById('out-one').textContent = one;
+    var mc = ensureChart('chart-mini', 'mini');
+    if (mc) {
+      mc.setOption({
+        grid: { left: 40, right: 12, top: 16, bottom: 28 },
+        xAxis: { type: 'category', data: ['E', 'P', 'I'], axisLabel: { color: '#4A4A4A' } },
+        yAxis: { type: 'value', max: 100, splitLine: { lineStyle: { color: '#e8e8e8' } } },
+        series: [{
+          type: 'bar',
+          data: [
+            { value: m.E_score, itemStyle: { color: '#004F71' } },
+            { value: m.P_score, itemStyle: { color: '#0097E0' } },
+            { value: m.I_score, itemStyle: { color: '#85BB24' } }
+          ],
+          barWidth: 26
+        }]
+      }, true);
+    }
+  }
+
+  function openCalculator(prefill, editingId) {
+    state.rightTab = 'calc';
+    state.editingId = editingId || null;
+    updateRightTabs();
+    renderRightPanel();
+    var m = prefill || fullModel({
+      id: '', name: '', businessLine: '智能客服', region: '华北', modelType: 'LLM大模型', riskType: 'F',
+      scale: 1,
+      E_freq: 3000000, E_coverage: 50000000, E_amount: 200,
+      P_history: 40, P_bias: 40, P_regulation: 40,
+      I_fine: 40, I_ltv: 40, I_reputation: 40, I_remediation: 40
+    });
+    setTimeout(function () {
+      document.getElementById('cf-name').value = m.name;
+      document.getElementById('cf-bl').value = m.businessLine;
+      document.getElementById('cf-rg').value = m.region;
+      document.getElementById('cf-mt').value = m.modelType;
+      document.getElementById('cf-rt').value = m.riskType;
+      document.getElementById('cf-scale').value = m.scale;
+      document.getElementById('cf-ef').value = Math.round(m.E_freq);
+      document.getElementById('cf-ec').value = Math.round(m.E_coverage);
+      document.getElementById('cf-ea').value = m.E_amount;
+      document.getElementById('cf-ph').value = m.P_history;
+      document.getElementById('cf-pb').value = m.P_bias;
+      document.getElementById('cf-pr').value = m.P_regulation;
+      document.getElementById('cf-if').value = m.I_fine;
+      document.getElementById('cf-il').value = m.I_ltv;
+      document.getElementById('cf-ir').value = m.I_reputation;
+      document.getElementById('cf-ix').value = m.I_remediation;
+      document.getElementById('cf-efv').textContent = (m.E_freq / 10000).toFixed(1) + ' 万次/日';
+      document.getElementById('cf-ecv').textContent = (m.E_coverage / 10000).toFixed(1) + ' 万人';
+      document.getElementById('cf-eav').textContent = m.E_amount.toFixed(1) + ' 万元';
+      wireRangeLabels();
+      updateCalcOutputs();
+      setTimeout(function () { charts.mini && charts.mini.resize(); }, 30);
+    }, 0);
+  }
+
+  function wireRangeLabels() {
+    var ef = document.getElementById('cf-ef');
+    var ec = document.getElementById('cf-ec');
+    var ea = document.getElementById('cf-ea');
+    if (ef) document.getElementById('cf-efv').textContent = (ef.value / 10000).toFixed(1) + ' 万次/日';
+    if (ec) document.getElementById('cf-ecv').textContent = (ec.value / 10000).toFixed(1) + ' 万人';
+    if (ea) document.getElementById('cf-eav').textContent = (+ea.value).toFixed(1) + ' 万元';
+  }
+
+  function renderCalculatorShell() {
+    return (
+      '<div class="calc-grid">' +
+      '<div class="subgroup"><h4 class="en">Basic</h4>' +
+      '<div class="field"><label>模型名称</label><input type="text" id="cf-name" /></div>' +
+      '<div class="field"><label>业务线</label><select id="cf-bl">' + BUSINESS_LINES.map(function (b) { return '<option>' + b + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>地区</label><select id="cf-rg">' + REGIONS.map(function (b) { return '<option>' + b + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>模型类型</label><select id="cf-mt">' + MODEL_TYPES.map(function (b) { return '<option>' + b + '</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>风险类型（热力图行）</label><select id="cf-rt">' + RISK_TYPES.map(function (b) { return '<option value="' + b.key + '">' + b.label + ' (' + b.code + ')</option>'; }).join('') + '</select></div>' +
+      '<div class="field"><label>业务规模（亿元）<span class="range-val" id="cf-sv">1.0</span></label>' +
+      '<input type="range" id="cf-scale" min="0.1" max="100" step="0.1" value="1" /></div></div>' +
+
+      '<div class="subgroup"><h4 class="en">Exposure E</h4>' +
+      '<div class="field"><label>AI 日均调用频次 <span class="range-val en" id="cf-efv">0</span></label>' +
+      '<input type="range" id="cf-ef" min="0" max="10000000" step="100000" value="0" /></div>' +
+      '<div class="field"><label>客户覆盖规模 <span class="range-val" id="cf-ecv">0</span></label>' +
+      '<input type="range" id="cf-ec" min="0" max="100000000" step="1000000" value="0" /></div>' +
+      '<div class="field"><label>单次决策金额（万元）<span class="range-val" id="cf-eav">0</span></label>' +
+      '<input type="range" id="cf-ea" min="0" max="1000" step="1" value="0" /></div>' +
+      '<div>E 分数（自动）: <strong id="out-e">0</strong></div></div>' +
+
+      '<div class="subgroup"><h4 class="en">Probability P</h4>' +
+      '<div class="field"><label>同业历史案例频率 (0-100)</label><input type="range" id="cf-ph" min="0" max="100" value="0" /></div>' +
+      '<div class="field"><label>模型偏差指标 (0-100)</label><input type="range" id="cf-pb" min="0" max="100" value="0" /></div>' +
+      '<div class="field"><label>监管关注度 (0-100)</label><input type="range" id="cf-pr" min="0" max="100" value="0" /></div>' +
+      '<div class="quick-btns"><button type="button" class="btn js-preg" data-v="30">低</button>' +
+      '<button type="button" class="btn js-preg" data-v="60">中</button><button type="button" class="btn js-preg" data-v="90">高</button></div>' +
+      '<div>P 分数（自动）: <strong id="out-p">0</strong></div></div>' +
+
+      '<div class="subgroup"><h4 class="en">Impact I</h4>' +
+      '<div class="field"><label>监管罚款上限 (0-100)</label><input type="range" id="cf-if" min="0" max="100" value="0" /></div>' +
+      '<div class="field"><label>客户 LTV 流失 (0-100)</label><input type="range" id="cf-il" min="0" max="100" value="0" /></div>' +
+      '<div class="field"><label>声誉成本 (0-100)</label><input type="range" id="cf-ir" min="0" max="100" value="0" /></div>' +
+      '<div class="field"><label>整改成本 (0-100)</label><input type="range" id="cf-ix" min="0" max="100" value="0" /></div>' +
+      '<div>I 分数（自动）: <strong id="out-i">0</strong></div></div>' +
+
+      '<div class="out-box">' +
+      '<div style="display:flex;align-items:flex-end;gap:12px;flex-wrap:wrap;">' +
+      '<div><div style="font-size:11px;font-weight:700;color:#004F71;" class="en">Composite R</div>' +
+      '<div id="out-r" style="font-size:40px;font-weight:800;color:#004F71;line-height:1;">0</div></div>' +
+      '<div><span id="out-lv" class="tag-level L">低 L</span></div></div>' +
+      '<div class="mini-chart" id="chart-mini"></div>' +
+      '<div class="section-title">资本拨备建议</div>' +
+      '<div class="reserve-big"><span id="out-cap">0</span> <span style="font-size:14px;color:#4A4A4A;font-weight:600;">万元/年</span></div>' +
+      '<div class="formula-note" id="out-cap-form">R = (E×P×I)^(1/3)；拨备 = 规模×系数×(R/80)×10000</div>' +
+      '<div style="margin-top:8px;font-weight:600;color:#004F71;" id="out-one"></div>' +
+      '<div style="margin-top:10px;display:flex;gap:8px;flex-wrap:wrap;">' +
+      '<button type="button" class="btn btn-primary" id="btn-save-new">保存为新模型</button>' +
+      '<button type="button" class="btn" id="btn-update-existing">更新现有模型</button></div></div></div>'
+    );
+  }
+
+  function updateRightTabs() {
+    document.querySelectorAll('.rtabs button').forEach(function (b) {
+      b.classList.toggle('active', b.getAttribute('data-rtab') === state.rightTab);
+    });
+  }
+
+  function renderRightPanel() {
+    var box = document.getElementById('right-body');
+    if (state.rightTab === 'calc') {
+      disposeChart('mini');
+      box.innerHTML = renderCalculatorShell();
+      document.getElementById('cf-scale').addEventListener('input', function () {
+        document.getElementById('cf-sv').textContent = (+document.getElementById('cf-scale').value).toFixed(1);
+        updateCalcOutputs();
+      });
+      ['cf-ef', 'cf-ec', 'cf-ea'].forEach(function (id) {
+        document.getElementById(id).addEventListener('input', wireRangeLabels);
+      });
+      wireCalc();
+      updateCalcOutputs();
+      return;
+    }
+
+    disposeChart('mini');
+    var ms = getFilteredModels();
+    var html = '';
+    var m = state.selectedModelId ? state.models.filter(function (x) { return x.id === state.selectedModelId; })[0] : null;
+    if (m) {
+      html = renderDetailModel(m);
+    } else if (state.selectedCellKey) {
+      var ck = state.selectedCellKey.split('|');
+      var ag = aggregateCell(ck[0], ck[1], ms);
+      if (ag) html = renderDetailAggregate(ag);
+      else html = '<p>该格在当前筛选下无模型，请点击热力图其他格子或放宽筛选。</p>';
+    } else {
+      html = '<p>请点击热力图格子或表格行查看详情。</p>';
+    }
+    box.innerHTML = html;
+  }
+
+  function syncTableActive() {
+    document.querySelectorAll('#model-table tbody tr').forEach(function (tr) {
+      tr.classList.toggle('active', tr.getAttribute('data-id') === state.selectedModelId);
+    });
+  }
+
+  function sortModels(list) {
+    var k = state.tableSort.key;
+    var dir = state.tableSort.dir === 'asc' ? 1 : -1;
+    return list.slice().sort(function (a, b) {
+      var va = a[k]; var vb = b[k];
+      if (typeof va === 'string') return va.localeCompare(vb, 'zh-CN') * dir;
+      return (va - vb) * dir;
+    });
+  }
+
+  function renderTable() {
+    var thead = document.querySelector('#model-table thead');
+    var tbody = document.querySelector('#model-table tbody');
+    var cols = [
+      { k: 'id', l: '模型ID' },
+      { k: 'name', l: '模型名称' },
+      { k: 'businessLine', l: '业务线' },
+      { k: 'region', l: '地区' },
+      { k: 'modelType', l: '模型类型' },
+      { k: 'E_score', l: 'E分' },
+      { k: 'P_score', l: 'P分' },
+      { k: 'I_score', l: 'I分' },
+      { k: 'R_score', l: '综合R' },
+      { k: 'level', l: '等级' },
+      { k: 'capitalReserve', l: '建议拨备(万元)' },
+      { k: '_op', l: '操作' }
+    ];
+    thead.innerHTML = '<tr>' + cols.map(function (c) {
+      if (c.k === '_op') return '<th>' + c.l + '</th>';
+      return '<th data-sort="' + c.k + '">' + c.l + (state.tableSort.key === c.k ? (state.tableSort.dir === 'asc' ? ' ▲' : ' ▼') : '') + '</th>';
+    }).join('') + '</tr>';
+
+    var rows = sortModels(getFilteredModels());
+    tbody.innerHTML = rows.map(function (m) {
+      return '<tr data-id="' + m.id + '">' +
+        '<td>' + m.id + '</td>' +
+        '<td>' + m.name + '</td>' +
+        '<td>' + m.businessLine + '</td>' +
+        '<td>' + m.region + '</td>' +
+        '<td>' + m.modelType + '</td>' +
+        '<td>' + m.E_score.toFixed(1) + '</td>' +
+        '<td>' + m.P_score.toFixed(1) + '</td>' +
+        '<td>' + m.I_score.toFixed(1) + '</td>' +
+        '<td>' + m.R_score.toFixed(1) + '</td>' +
+        '<td class="lvl-dot ' + m.level + '">' + m.level + '</td>' +
+        '<td>' + Math.round(m.capitalReserve) + '</td>' +
+        '<td><a href="#" class="js-edit" data-id="' + m.id + '">编辑</a> · <a href="#" class="js-del" data-id="' + m.id + '">删除</a></td>' +
+        '</tr>';
+    }).join('');
+
+    thead.querySelectorAll('th[data-sort]').forEach(function (th) {
+      th.addEventListener('click', function () {
+        var key = th.getAttribute('data-sort');
+        if (state.tableSort.key === key) state.tableSort.dir = state.tableSort.dir === 'asc' ? 'desc' : 'asc';
+        else { state.tableSort.key = key; state.tableSort.dir = 'desc'; }
+        renderTable();
+      });
+    });
+
+    tbody.querySelectorAll('tr').forEach(function (tr) {
+      tr.addEventListener('click', function (e) {
+        if (e.target.classList.contains('js-edit') || e.target.classList.contains('js-del')) return;
+        var id = tr.getAttribute('data-id');
+        state.selectedModelId = id;
+        state.selectedCellKey = null;
+        var mm = state.models.filter(function (x) { return x.id === id; })[0];
+        if (mm) state.selectedCellKey = mm.riskType + '|' + mm.businessLine;
+        state.rightTab = 'detail';
+        updateRightTabs();
+        renderRightPanel();
+        syncTableActive();
+      });
+    });
+    tbody.querySelectorAll('.js-edit').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var id = a.getAttribute('data-id');
+        var mm = state.models.filter(function (x) { return x.id === id; })[0];
+        state.selectedModelId = id;
+        openCalculator(mm, id);
+      });
+    });
+    tbody.querySelectorAll('.js-del').forEach(function (a) {
+      a.addEventListener('click', function (e) {
+        e.preventDefault(); e.stopPropagation();
+        var id = a.getAttribute('data-id');
+        if (!confirm('确认删除模型 ' + id + ' ?')) return;
+        state.models = state.models.filter(function (x) { return x.id !== id; });
+        saveModels();
+        if (state.selectedModelId === id) state.selectedModelId = null;
+        refreshAll();
+      });
+    });
+    syncTableActive();
+  }
+
+  function exportCSV() {
+    var rows = sortModels(state.models);
+    var header = ['id', 'name', 'businessLine', 'region', 'modelType', 'riskType', 'scale', 'E_freq', 'E_coverage', 'E_amount', 'P_history', 'P_bias', 'P_regulation', 'I_fine', 'I_ltv', 'I_reputation', 'I_remediation', 'E_score', 'P_score', 'I_score', 'R_score', 'level', 'capitalReserve'];
+    var esc = function (s) { return '"' + String(s).replace(/"/g, '""') + '"'; };
+    var lines = [header.join(',')].concat(rows.map(function (m) {
+      return header.map(function (h) { return esc(m[h]); }).join(',');
+    }));
+    var blob = new Blob(['\ufeff' + lines.join('\n')], { type: 'text/csv;charset=utf-8;' });
+    var url = URL.createObjectURL(blob);
+    var a = document.createElement('a');
+    a.href = url; a.download = 'xbank-ai-models.csv'; a.click();
+    URL.revokeObjectURL(url);
+  }
+
+  function refreshAll() {
+    state.models = state.models.map(function (m) { return fullModel(m); });
+    var ms = getFilteredModels();
+    document.getElementById('empty-viz').classList.toggle('show', ms.length === 0);
+    renderHeatmap(ms);
+    updateKPI(ms);
+    if (state.midTab !== 'heat') switchMidTab(state.midTab);
+    renderTable();
+    if (state.rightTab === 'detail') renderRightPanel();
+    else if (state.rightTab === 'calc') renderRightPanel();
+  }
+
+  function bindGlobals() {
+    document.getElementById('btn-reset-filters').addEventListener('click', function () {
+      initFiltersState();
+      renderFilterUI();
+      refreshAll();
+    });
+    document.querySelectorAll('#mid-tabs button').forEach(function (b) {
+      b.addEventListener('click', function () { switchMidTab(b.getAttribute('data-tab')); });
+    });
+    document.querySelectorAll('.rtabs button').forEach(function (b) {
+      b.addEventListener('click', function () {
+        state.rightTab = b.getAttribute('data-rtab');
+        updateRightTabs();
+        if (state.rightTab === 'calc') openCalculator(null, null);
+        else renderRightPanel();
+      });
+    });
+    document.getElementById('bottom-toggle').addEventListener('click', function () {
+      state.bottomOpen = !state.bottomOpen;
+      document.getElementById('bottom-body').classList.toggle('open', state.bottomOpen);
+      document.getElementById('bottom-arrow').textContent = state.bottomOpen ? '▲' : '▼';
+    });
+    document.getElementById('btn-add-model').addEventListener('click', function () {
+      state.selectedModelId = null;
+      openCalculator(null, null);
+    });
+    document.getElementById('btn-export-csv').addEventListener('click', exportCSV);
+    window.addEventListener('resize', function () {
+      Object.keys(charts).forEach(function (k) { charts[k] && charts[k].resize(); });
+    });
+  }
+
+  function init() {
+    initFiltersState();
+    state.models = loadModels().map(function (m) { return fullModel(m); });
+    state.selectedCellKey = 'F|信贷审批';
+    state.selectedModelId = null;
+    state.rightTab = 'detail';
+    renderFilterUI();
+    bindGlobals();
+    refreshAll();
+  }
+
+  if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', init);
+  else init();
+})();
+</script>
+</body>
+</html>
+
