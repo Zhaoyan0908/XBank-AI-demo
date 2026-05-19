@@ -145,10 +145,19 @@ body::before {
 .hero-titles .name-zh { font-size: 18px; color: var(--cyan); letter-spacing: 6px; margin-top: 6px; font-weight: 500; }
 .hero-titles .sub, .hero-titles .slogan { font-size: 13px; color: var(--text-sub); margin-top: 8px; }
 .hero-titles .slogan { color: rgba(232,241,248,0.85); font-weight: 500; }
-.hero-kpis { display: flex; gap: 12px; flex-wrap: wrap; position: relative; z-index: 1; }
+.hero-kpis {
+  display: flex; gap: 16px;
+  flex: 1; min-width: 0;
+  justify-content: space-around;
+  align-items: stretch;
+  position: relative; z-index: 1;
+  max-width: 720px;
+}
 .hero-kpi {
-  min-width: 130px;
-  padding: 12px 18px;
+  flex: 1;
+  min-width: 0;
+  max-width: 220px;
+  padding: 14px 22px;
   border: 1px solid var(--border);
   border-radius: 14px;
   background: linear-gradient(180deg, rgba(15,44,70,0.45), rgba(6,22,39,0.45));
@@ -169,7 +178,7 @@ body::before {
 .hero-kpi .val {
   font-family: var(--font-num); font-size: 36px; font-weight: 900;
   letter-spacing: -0.04em; margin-top: 4px; font-variant-numeric: tabular-nums;
-  text-shadow: 0 0 12px currentColor;
+  
   position: relative;
 }
 .hero-kpi .unit { font-size: 11px; color: var(--text-hint); margin-top: 2px; position: relative; }
@@ -269,7 +278,7 @@ body::before {
 .heat-tag.M { color: var(--risk-m); }
 .heat-tag.L { color: var(--risk-l); }
 .heat-meta { font-size: 10px; color: var(--text-hint); margin-top: 4px; }
-.star { position: absolute; top: 6px; right: 8px; color: var(--lime); font-size: 14px; text-shadow: 0 0 8px var(--lime); }
+.star { position: absolute; top: 6px; right: 8px; color: var(--lime); font-size: 14px;  }
 .chart-box { width: 100%; height: 380px; display: none; }
 .chart-box.show { display: block; }
 .legend-bar {
@@ -285,7 +294,7 @@ body::before {
 .detail-score {
   font-family: var(--font-num); font-size: 44px; font-weight: 900;
   letter-spacing: -0.04em; line-height: 1;
-  text-shadow: 0 0 12px currentColor;
+  
 }
 .detail-score.score-H { color: var(--risk-h); }
 .detail-score.score-M { color: var(--risk-m); }
@@ -321,7 +330,7 @@ body::before {
 .reserve-big {
   font-family: var(--font-num); font-size: 36px; font-weight: 900; color: var(--lime); margin-top: 6px;
   letter-spacing: -0.04em;
-  text-shadow: 0 0 12px rgba(134,188,37,0.45);
+  
 }
 .formula-note { font-size: 11px; color: var(--text-hint); margin-top: 6px; }
 .calc-grid { display: grid; gap: 10px; }
@@ -338,7 +347,7 @@ body::before {
 .out-box { border: 1px solid rgba(34,211,238,0.3); padding: 14px; margin-top: 10px; border-radius: 8px; background: rgba(34,211,238,0.06); }
 #out-r {
   font-family: var(--font-num); font-size: 42px; font-weight: 900; line-height: 1;
-  letter-spacing: -0.04em; text-shadow: 0 0 12px currentColor;
+  letter-spacing: -0.04em; 
 }
 .mini-chart { width: 100%; height: 160px; margin-top: 8px; }
 .bottom-panel { margin-top: 14px; }
